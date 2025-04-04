@@ -58,18 +58,18 @@ export default function Navbar() {
 
   const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0)
   const itemCount = cartItems.reduce((count, item) => count + item.quantity, 0)
+  const isProductPage = pathname.startsWith("/products") || pathname.startsWith("/product");
 
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled ? "bg-white shadow-lg py-4" : "bg-transparent py-4"}`}
+        className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${
+          isProductPage || scrolled ? "bg-white shadow-lg text-gray-900" : "bg-transparent text-white"
+        }`}
       >
-        <div className="container mx-auto px-4 flex items-center justify-between relative">
+        <div className="container mx-auto px-4 flex items-center justify-between relative py-4">
           {/* Logo */}
-          <Link
-            href="/"
-            className={`text-2xl font-bold tracking-wide transition-colors ${scrolled ? "text-gray-900" : "text-white"}`}
-          >
+          <Link href="/" className="text-2xl font-bold tracking-wide">
             Ecom
           </Link>
 
@@ -79,7 +79,9 @@ export default function Navbar() {
               <Link
                 key={item}
                 href={`/${item.toLowerCase()}`}
-                className={`transition-colors ${scrolled ? "text-gray-900 hover:text-gray-700" : "text-white hover:text-gray-300"}`}
+                className={`transition-colors ${
+                  isProductPage || scrolled ? "text-gray-900 hover:text-gray-700" : "text-white hover:text-gray-300"
+                }`}
               >
                 {item}
               </Link>
@@ -88,26 +90,38 @@ export default function Navbar() {
 
           {/* Icons */}
           <div className="hidden md:flex items-center space-x-4">
+            {/* Search Button */}
             <button
               onClick={() => setSearchOpen(!searchOpen)}
-              className={`p-2 rounded-full transition-colors ${scrolled ? "hover:bg-gray-100 text-gray-900" : "hover:bg-white/10 text-white"}`}
+              className={`p-2 rounded-full transition-colors ${
+                isProductPage || scrolled ? "hover:bg-gray-100 text-gray-900" : "hover:bg-white/10 text-white"
+              }`}
               aria-label="Search"
             >
               <Search size={20} />
             </button>
+            {/* Cart Button */}
             <button
               onClick={() => setCartOpen(true)}
-              className={`relative p-2 rounded-full transition-colors ${scrolled ? "hover:bg-gray-100 text-gray-900" : "hover:bg-white/10 text-white"}`}
+              className={`relative p-2 rounded-full transition-colors ${
+                isProductPage || scrolled ? "hover:bg-gray-100 text-gray-900" : "hover:bg-white/10 text-white"
+              }`}
               aria-label="Cart"
             >
               <ShoppingCart size={20} />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                {itemCount}
-              </span>
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                  {itemCount}
+                </span>
+              )}
             </button>
+
+            {/* Account Button */}
             <Link
               href="/account"
-              className={`p-2 rounded-full transition-colors ${scrolled ? "hover:bg-gray-100 text-gray-900" : "hover:bg-white/10 text-white"}`}
+              className={`p-2 rounded-full transition-colors ${
+                isProductPage || scrolled ? "hover:bg-gray-100 text-gray-900" : "hover:bg-white/10 text-white"
+              }`}
               aria-label="Account"
             >
               <User size={20} />
@@ -116,41 +130,41 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="flex items-center space-x-2 md:hidden">
-            <button
-              onClick={() => setCartOpen(true)}
-              className={`relative p-2 rounded-full transition-colors ${scrolled ? "hover:bg-gray-100 text-gray-900" : "hover:bg-white/10 text-white"}`}
-              aria-label="Cart"
-            >
-              <ShoppingCart size={20} />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                {itemCount}
-              </span>
-            </button>
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className={`p-2 focus:outline-none z-50 transition-colors ${scrolled ? "text-gray-900" : "text-white"}`}
-              aria-label={isOpen ? "Close menu" : "Open menu"}
-            >
-              {isOpen ? (
-                <X size={24} className="text-gray-900" />
-              ) : (
-                <Menu size={24} className={scrolled ? "text-gray-900" : "text-white"} />
-              )}
-            </button>
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className={`p-2 focus:outline-none z-50 transition-colors ${
+              isOpen || scrolled || isProductPage ? "text-gray-900" : "text-white"
+            }`}
+            aria-label={isOpen ? "Close menu" : "Open menu"}
+          >
+            {isOpen ? (
+              <X size={24} className={isOpen || scrolled || isProductPage ? "text-gray-900" : "text-white"} />
+            ) : (
+              <Menu size={24} className={scrolled || isProductPage ? "text-gray-900" : "text-white"} />
+            )}
+          </button>
+
+
           </div>
         </div>
 
         {/* Search Bar */}
         {searchOpen && (
-          <div className="mt-4 container mx-auto px-4">
-            <div className="relative">
-              <input type="text" placeholder="Search for products..." className="w-full p-2 border rounded pl-10" />
-              <Search size={18} className="absolute left-3 top-3 text-gray-400" />
+          <div className="absolute top-full left-0 w-full bg-white shadow-md">
+            <div className="container mx-auto px-4 py-3">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search for products..."
+                  className="w-full p-2 border rounded pl-10"
+                />
+                <Search size={18} className="absolute left-3 top-3 text-gray-400" />
+              </div>
             </div>
           </div>
         )}
 
-        {/* Mobile Navigation - Always white bg with dark text */}
+        {/* Mobile Navigation */}
         <div
           className={`fixed inset-0 bg-white z-40 pt-20 shadow-lg md:hidden flex flex-col items-start space-y-6 text-lg font-medium transition-transform duration-300 px-6 text-gray-900 ${
             isOpen ? "translate-x-0" : "translate-x-full"
@@ -180,7 +194,6 @@ export default function Navbar() {
           </div>
         </div>
       </nav>
-
       {/* Sliding Cart */}
       <div
         className={`fixed inset-y-0 right-0 z-50 bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${
