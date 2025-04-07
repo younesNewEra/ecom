@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DELIVERED
+  DONE
+  CANCELED
+}
+
+model User {
+  id          String    @id @default(cuid())
+  name        String
+  email       String    @unique
+  password    String
+  role        Role      @default(CLIENT)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  orders      Order[]
+  
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("categories")
+}
+
+model Color {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  hexValue    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    ProductColor[]
+  
+  @@map("colors")
+}
+
+model Size {
+  id          String    @id @default(cuid())
+  name        String    @unique  // S, M, L, XL, etc.
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    ProductSize[]
+  
+  @@map("sizes")
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  costPrice   Float  // The price you pay for the product
+  imageUrl    String
+  stock       Int       @default(0)
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  colors      ProductColor[]
+  sizes       ProductSize[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  orderItems  OrderItem[]
+  campaigns   CampaignProduct[]
+  
+  @@map("products")
+}
+
+model ProductColor {
+  id          String    @id @default(cuid())
+  productId   String
+  colorId     String
+  stock       Int       @default(0)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color       Color     @relation(fields: [colorId], references: [id])
+  
+  @@unique([productId, colorId])
+  @@map("product_colors")
+}
+
+model ProductSize {
+  id          String    @id @default(cuid())
+  productId   String
+  sizeId      String
+  stock       Int       @default(0)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size        Size      @relation(fields: [sizeId], references: [id])
+  
+  @@unique([productId, sizeId])
+  @@map("product_sizes")
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  status      OrderStatus @default(PENDING)
+  totalAmount Float
+  items       OrderItem[]
+  shippingAddress String
+  paymentMethod String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String    @id @default(cuid())
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  quantity    Int
+  price       Float     // Price at the time of purchase
+  colorId     String?
+  sizeId      String?
+  
+  @@map("order_items")
+}
+
+model Campaign {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  budget      Float
+  products    CampaignProduct[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("campaigns")
+}
+
+model CampaignProduct {
+  id          String    @id @default(cuid())
+  campaignId  String
+  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  cost        Float     // Cost allocated from campaign budget to this product
+  
+  @@unique([campaignId, productId])
+  @@map("campaign_products")
+}
