@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { redirect } from 'next/navigation'
+
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { Eye, EyeOff, ArrowRight, Check } from "lucide-react"
@@ -27,11 +29,47 @@ export default function AuthPage() {
     }
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    // Handle authentication logic here
-    console.log(isSignIn ? "Signing in" : "Signing up", { email, password, name })
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+  
+    if (!email || !password) return;
+  
+    try {
+      const endpoint = isSignIn ? "/api/auth/login" : "/api/auth/signup";
+      const body = isSignIn
+        ? { email, password }
+        : { name, email, password };
+  
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        throw new Error(data.error || "Authentication failed");
+      }
+  
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        // Optionally: redirect to dashboard
+        // router.push("/dashboard");
+        console.log("Login successful:", data.user);
+      } else {
+        console.log("Registration successful:", data.user);
+        redirect('/login');
+      }
+  
+    } catch (err) {
+      console.error("Auth error:", err.message);
+      // Optionally show toast/alert
+    }
+  };
 
   const isValidEmail = email.includes("@") && email.includes(".")
   const isValidPassword = password.length >= 8
