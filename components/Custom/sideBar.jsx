@@ -10,27 +10,27 @@ import { cn } from "@/lib/utils"
 const navItems = [
   {
     title: "Dashboard",
-    href: "/",
+    href: "/admin/dashboard",
     icon: LayoutDashboard,
   },
   {
     title: "Products",
-    href: "/products",
+    href: "/admin/products",
     icon: Package,
   },
   {
     title: "Orders",
-    href: "/orders",
+    href: "/admin/orders",
     icon: ShoppingCart,
   },
   {
     title: "Customers",
-    href: "/customers",
+    href: "/admin/customers",
     icon: Users,
   },
   {
     title: "Campaigns",
-    href: "/campaigns",
+    href: "/admin/campaign",
     icon: Megaphone,
   },
 ]

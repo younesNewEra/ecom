@@ -2,8 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { redirect } from 'next/navigation'
-
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { Eye, EyeOff, ArrowRight, Check } from "lucide-react"
@@ -14,16 +13,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export default function AuthPage() {
+  const router = useRouter()
   const [isSignIn, setIsSignIn] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const toggleView = () => {
     setIsSignIn(!isSignIn)
     // Reset form fields when toggling
     setPassword("")
+    setError("")
     if (!isSignIn) {
       setName("")
     }
@@ -31,8 +34,15 @@ export default function AuthPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    setError("");
+    setLoading(true);
   
-    if (!email || !password) return;
+    if (!email || !password || (!isSignIn && !name)) {
+      setError("All fields are required");
+      setLoading(false);
+      return;
+    }
   
     try {
       const endpoint = isSignIn ? "/api/auth/login" : "/api/auth/signup";
@@ -55,19 +65,32 @@ export default function AuthPage() {
       }
   
       if (data.token) {
+        // Store auth data
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        // Optionally: redirect to dashboard
-        // router.push("/dashboard");
-        console.log("Login successful:", data.user);
+        
+        // Create cookie for server-side authentication
+        document.cookie = `token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
+        
+        // Redirect based on user role
+        if (data.user.role === 'ADMIN') {
+          router.push('/admin/dashboard');
+        } else {
+          router.push('/');  // Redirect to home for regular users
+        }
       } else {
-        console.log("Registration successful:", data.user);
-        redirect('/login');
+        // If we somehow don't get a token but request succeeded
+        if (!isSignIn) {
+          // Successfully registered but no auto-login
+          setIsSignIn(true);
+          setError("Registration successful. Please sign in.");
+        }
       }
-  
     } catch (err) {
       console.error("Auth error:", err.message);
-      // Optionally show toast/alert
+      setError(err.message || "Authentication failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -124,6 +147,12 @@ export default function AuthPage() {
               {isSignIn ? "Sign in to access your account" : "Sign up to get started with our platform"}
             </p>
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+              {error}
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
             <motion.form
@@ -218,9 +247,25 @@ export default function AuthPage() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full h-12 bg-black hover:bg-gray-800 text-white">
-                <span>{isSignIn ? "Sign In" : "Create Account"}</span>
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button 
+                type="submit" 
+                className="w-full h-12 bg-black hover:bg-gray-800 text-white"
+                disabled={loading}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center">
+                    {isSignIn ? "Sign In" : "Create Account"}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </span>
+                )}
               </Button>
             </motion.form>
           </AnimatePresence>

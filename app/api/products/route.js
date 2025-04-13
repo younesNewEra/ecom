@@ -1,56 +1,12 @@
-import express from "express"
-import prisma from "../lib/prisma.js"
-import upload from "../middlewares/upload.js"
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import fs from "fs/promises";
+import path from "path";
 
-const router = express.Router()
+const prisma = new PrismaClient();
 
-// 🔹 Add Product
-router.post("/", upload.single("image"), async (req, res) => {
-  try {
-    const {
-      name,
-      description,
-      categoryId,
-      price,
-      costPrice,
-      stock,
-      sizes,
-      colors,
-    } = req.body
-
-    const imageUrl = req.file ? req.file.path : ""
-
-    const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        categoryId,
-        price: parseFloat(price),
-        costPrice: parseFloat(costPrice),
-        imageUrl,
-        stock: parseInt(stock),
-        sizes: JSON.parse(sizes).map((sizeId) => ({
-          size: { connect: { id: sizeId } },
-        })),
-        colors: JSON.parse(colors).map((colorId) => ({
-          color: { connect: { id: colorId } },
-        })),
-      },
-      include: {
-        sizes: { include: { size: true } },
-        colors: { include: { color: true } },
-      },
-    })
-
-    res.json(product)
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: "Product creation failed" })
-  }
-})
-
-// 🔹 Get All Products
-router.get("/", async (req, res) => {
+// GET all products
+export async function GET() {
   try {
     const products = await prisma.product.findMany({
       include: {
@@ -58,77 +14,391 @@ router.get("/", async (req, res) => {
         sizes: { include: { size: true } },
         colors: { include: { color: true } },
       },
-    })
-    res.json(products)
+    });
+    return NextResponse.json(products);
   } catch (err) {
-    res.status(500).json({ error: "Fetching products failed" })
+    console.error(err);
+    return NextResponse.json(
+      { error: "Fetching products failed" },
+      { status: 500 }
+    );
   }
-})
+}
 
-// 🔹 Update Product
-router.put("/:id", upload.single("image"), async (req, res) => {
-  const { id } = req.params
+// POST new product
+export async function POST(request) {
   try {
-    const {
-      name,
-      description,
-      categoryId,
-      price,
-      costPrice,
-      stock,
-      sizes,
-      colors,
-    } = req.body
-
-    const imageUrl = req.file ? req.file.path : undefined
-
-    // Remove old sizes/colors first
-    await prisma.productSize.deleteMany({ where: { productId: id } })
-    await prisma.productColor.deleteMany({ where: { productId: id } })
-
-    const product = await prisma.product.update({
-      where: { id },
+    const formData = await request.formData();
+    
+    // Extract data from formData
+    const name = formData.get("name");
+    const description = formData.get("description") || "";
+    const categoryId = formData.get("categoryId");
+    const price = parseFloat(formData.get("price") || formData.get("sellingPrice"));
+    const costPrice = parseFloat(formData.get("costPrice") || formData.get("buyingPrice"));
+    const stock = parseInt(formData.get("stock"));
+    
+    // Validations
+    if (!name || !categoryId) {
+      return NextResponse.json(
+        { error: "Name and category are required" },
+        { status: 400 }
+      );
+    }
+    
+    if (isNaN(price) || isNaN(costPrice) || isNaN(stock)) {
+      return NextResponse.json(
+        { error: "Price, cost price, and stock must be valid numbers" },
+        { status: 400 }
+      );
+    }
+    
+    // Get image file
+    const imageFile = formData.get("image");
+    let imageUrl = "";
+    
+    if (imageFile) {
+      try {
+        // Ensure directory exists
+        const publicDirPath = path.join(process.cwd(), "public", "product-images");
+        await fs.mkdir(publicDirPath, { recursive: true });
+        
+        // Generate unique filename
+        const uniqueFileName = `${Date.now()}-${imageFile.name}`;
+        imageUrl = `/product-images/${uniqueFileName}`;
+        
+        // Save the file to public directory
+        const buffer = Buffer.from(await imageFile.arrayBuffer());
+        await fs.writeFile(path.join(process.cwd(), "public", imageUrl), buffer);
+      } catch (error) {
+        console.error("Image upload error:", error);
+        return NextResponse.json(
+          { error: "Image upload failed" },
+          { status: 500 }
+        );
+      }
+    } else {
+      // Set default image if no image provided
+      imageUrl = "/product-images/default-product.jpg";
+    }
+    
+    // Get selected colors and sizes
+    let colorNames = [];
+    let sizeNames = [];
+    
+    try {
+      // Parse JSON strings for colors and sizes
+      const colorsString = formData.get("colors");
+      const sizesString = formData.get("sizes");
+      
+      if (colorsString) {
+        colorNames = JSON.parse(colorsString);
+      }
+      
+      if (sizesString) {
+        sizeNames = JSON.parse(sizesString);
+      }
+    } catch (error) {
+      console.error("Parsing colors/sizes error:", error);
+      return NextResponse.json(
+        { error: "Invalid color or size data format" },
+        { status: 400 }
+      );
+    }
+    
+    // Create or get colors
+    const colorConnections = [];
+    for (const colorName of colorNames) {
+      // Find or create the color
+      let color = await prisma.color.findFirst({
+        where: { name: { equals: colorName, mode: 'insensitive' } }
+      });
+      
+      if (!color) {
+        // Create a new color with a default hex value
+        color = await prisma.color.create({
+          data: {
+            name: colorName,
+            hexValue: "#000000" // Default hex value
+          }
+        });
+      }
+      
+      colorConnections.push({
+        color: {
+          connect: { id: color.id }
+        }
+      });
+    }
+    
+    // Create or get sizes
+    const sizeConnections = [];
+    for (const sizeName of sizeNames) {
+      // Find or create the size
+      let size = await prisma.size.findFirst({
+        where: { name: { equals: sizeName, mode: 'insensitive' } }
+      });
+      
+      if (!size) {
+        // Create a new size
+        size = await prisma.size.create({
+          data: {
+            name: sizeName
+          }
+        });
+      }
+      
+      sizeConnections.push({
+        size: {
+          connect: { id: size.id }
+        }
+      });
+    }
+    
+    // Create the product
+    const product = await prisma.product.create({
       data: {
         name,
         description,
         categoryId,
-        price: parseFloat(price),
-        costPrice: parseFloat(costPrice),
-        stock: parseInt(stock),
-        ...(imageUrl && { imageUrl }),
-        sizes: {
-          create: JSON.parse(sizes).map((sizeId) => ({
-            size: { connect: { id: sizeId } },
-          })),
+        price,
+        costPrice,
+        imageUrl,
+        stock,
+        colors: { 
+          create: colorConnections
         },
-        colors: {
-          create: JSON.parse(colors).map((colorId) => ({
-            color: { connect: { id: colorId } },
-          })),
+        sizes: { 
+          create: sizeConnections
         },
       },
       include: {
+        category: true,
         sizes: { include: { size: true } },
         colors: { include: { color: true } },
       },
-    })
+    });
 
-    res.json(product)
+    return NextResponse.json(product);
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: "Product update failed" })
+    console.error("Product creation error:", err);
+    return NextResponse.json(
+      { error: "Product creation failed: " + err.message },
+      { status: 500 }
+    );
   }
-})
+}
 
-// 🔹 Delete Product
-router.delete("/:id", async (req, res) => {
-  const { id } = req.params
+// PUT to update a product
+export async function PUT(request) {
   try {
-    await prisma.product.delete({ where: { id } })
-    res.json({ message: "Product deleted successfully" })
-  } catch (err) {
-    res.status(500).json({ error: "Product deletion failed" })
-  }
-})
+    const formData = await request.formData();
+    const id = formData.get("id");
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: "Product ID is required" },
+        { status: 400 }
+      );
+    }
+    
+    // Extract data from formData
+    const name = formData.get("name");
+    const description = formData.get("description") || "";
+    const categoryId = formData.get("categoryId");
+    const price = parseFloat(formData.get("price") || formData.get("sellingPrice"));
+    const costPrice = parseFloat(formData.get("costPrice") || formData.get("buyingPrice"));
+    const stock = parseInt(formData.get("stock"));
+    
+    // Prepare update data
+    const updateData = {
+      name,
+      description,
+      categoryId,
+      stock,
+    };
+    
+    // Only add price fields if they are valid numbers
+    if (!isNaN(price)) updateData.price = price;
+    if (!isNaN(costPrice)) updateData.costPrice = costPrice;
+    
+    // Get image file
+    const imageFile = formData.get("image");
+    
+    if (imageFile && imageFile.name) {
+      // Handle image upload similarly to POST
+      try {
+        // Ensure directory exists
+        const publicDirPath = path.join(process.cwd(), "public", "product-images");
+        await fs.mkdir(publicDirPath, { recursive: true });
+        
+        // Generate unique filename
+        const uniqueFileName = `${Date.now()}-${imageFile.name}`;
+        updateData.imageUrl = `/product-images/${uniqueFileName}`;
+        
+        // Save the file to public directory
+        const buffer = Buffer.from(await imageFile.arrayBuffer());
+        await fs.writeFile(path.join(process.cwd(), "public", updateData.imageUrl), buffer);
+      } catch (error) {
+        console.error("Image update error:", error);
+        return NextResponse.json(
+          { error: "Image update failed" },
+          { status: 500 }
+        );
+      }
+    }
+    
+    // Get selected colors and sizes if provided
+    let colorNames = [];
+    let sizeNames = [];
+    
+    try {
+      // Parse JSON strings for colors and sizes if provided
+      const colorsString = formData.get("colors");
+      const sizesString = formData.get("sizes");
+      
+      if (colorsString) {
+        colorNames = JSON.parse(colorsString);
+      }
+      
+      if (sizesString) {
+        sizeNames = JSON.parse(sizesString);
+      }
+    } catch (error) {
+      console.error("Parsing colors/sizes error:", error);
+    }
+    
+    // Only update colors and sizes if they were provided
+    if (colorNames.length > 0 || sizeNames.length > 0) {
+      // Update colors if provided
+      if (colorNames.length > 0) {
+        // Remove old colors first
+        await prisma.productColor.deleteMany({ where: { productId: id } });
+        
+        // Add new colors
+        for (const colorName of colorNames) {
+          // Find or create the color
+          let color = await prisma.color.findFirst({
+            where: { name: { equals: colorName, mode: 'insensitive' } }
+          });
+          
+          if (!color) {
+            // Create a new color with a default hex value
+            color = await prisma.color.create({
+              data: {
+                name: colorName,
+                hexValue: "#000000" // Default hex value
+              }
+            });
+          }
+          
+          // Connect color to product
+          await prisma.productColor.create({
+            data: {
+              productId: id,
+              colorId: color.id
+            }
+          });
+        }
+      }
+      
+      // Update sizes if provided
+      if (sizeNames.length > 0) {
+        // Remove old sizes first
+        await prisma.productSize.deleteMany({ where: { productId: id } });
+        
+        // Add new sizes
+        for (const sizeName of sizeNames) {
+          // Find or create the size
+          let size = await prisma.size.findFirst({
+            where: { name: { equals: sizeName, mode: 'insensitive' } }
+          });
+          
+          if (!size) {
+            // Create a new size
+            size = await prisma.size.create({
+              data: {
+                name: sizeName
+              }
+            });
+          }
+          
+          // Connect size to product
+          await prisma.productSize.create({
+            data: {
+              productId: id,
+              sizeId: size.id
+            }
+          });
+        }
+      }
+    }
+    
+    // Update the product
+    const product = await prisma.product.update({
+      where: { id },
+      data: updateData,
+      include: {
+        category: true,
+        sizes: { include: { size: true } },
+        colors: { include: { color: true } },
+      },
+    });
 
-export default router
+    return NextResponse.json(product);
+  } catch (err) {
+    console.error("Product update error:", err);
+    return NextResponse.json(
+      { error: "Product update failed: " + err.message },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE a product
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: "Product ID is required" },
+        { status: 400 }
+      );
+    }
+    
+    // Get the current product
+    const product = await prisma.product.findUnique({
+      where: { id }
+    });
+    
+    if (!product) {
+      return NextResponse.json(
+        { error: "Product not found" },
+        { status: 404 }
+      );
+    }
+    
+    // Delete the product image if it's not the default
+    if (product.imageUrl && !product.imageUrl.includes('default-product.jpg')) {
+      try {
+        await fs.unlink(path.join(process.cwd(), "public", product.imageUrl));
+      } catch (error) {
+        console.error("Failed to delete product image:", error);
+        // Continue with deletion even if image removal fails
+      }
+    }
+    
+    // Delete the product
+    await prisma.product.delete({ where: { id } });
+    
+    return NextResponse.json({ message: "Product deleted successfully" });
+  } catch (err) {
+    console.error("Product deletion error:", err);
+    return NextResponse.json(
+      { error: "Product deletion failed: " + err.message },
+      { status: 500 }
+    );
+  }
+}
