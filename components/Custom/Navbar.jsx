@@ -58,7 +58,7 @@ export default function Navbar() {
 
   const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0)
   const itemCount = cartItems.reduce((count, item) => count + item.quantity, 0)
-  const isProductPage = pathname.startsWith("/products") || pathname.startsWith("/product");
+  const isProductPage = pathname.startsWith("/products") || pathname.startsWith("/product") || pathname.startsWith("/checkout");
 
   return (
     <>

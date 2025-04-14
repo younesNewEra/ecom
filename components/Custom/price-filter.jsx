@@ -6,7 +6,7 @@ import { Slider } from "@/components/ui/slider"
 
 export default function PriceFilter({ priceRange, setPriceRange }) {
   const [localRange, setLocalRange] = useState(priceRange)
-  const maxPrice = 1000
+  const maxPrice = 10000  // Updated from 1000 to 10000
   
   // Update price range with minimal delay
   useEffect(() => {
@@ -32,8 +32,8 @@ export default function PriceFilter({ priceRange, setPriceRange }) {
             value={localRange}
             min={0}
             max={maxPrice}
-            step={1}
-            minStepsBetweenThumbs={10}
+            step={10}  // Updated for better usability with larger range
+            minStepsBetweenThumbs={100}  // Updated for better usability with larger range
             onValueChange={(value) => {
               setLocalRange(value)
             }}

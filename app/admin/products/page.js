@@ -53,7 +53,24 @@ export default function ProductsPage() {
         const productsRes = await fetch('/api/products')
         if (!productsRes.ok) throw new Error('Failed to fetch products')
         const productsData = await productsRes.json()
-        setProducts(productsData)
+        
+        // Ensure productsData is an array before setting it to state
+        if (Array.isArray(productsData)) {
+          setProducts(productsData)
+        } else if (productsData && typeof productsData === 'object') {
+          // If response is an object that has a products property which is an array
+          if (Array.isArray(productsData.products)) {
+            setProducts(productsData.products)
+          } else {
+            // If it's an object but doesn't have a products array, set empty array
+            console.error("API response is not an array or doesn't contain a products array:", productsData)
+            setProducts([])
+          }
+        } else {
+          // For any other case, set an empty array
+          console.error("Invalid API response format:", productsData)
+          setProducts([])
+        }
         
         // Fetch categories
         const categoriesRes = await fetch('/api/categories')
@@ -62,6 +79,8 @@ export default function ProductsPage() {
         setCategories(categoriesData)
       } catch (error) {
         console.error("Error fetching data:", error)
+        // Ensure products is an array even when there's an error
+        setProducts([])
       } finally {
         setLoading(false)
       }

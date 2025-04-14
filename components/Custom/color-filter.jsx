@@ -16,11 +16,61 @@ export default function ColorFilter({ colors, selectedColors, setSelectedColors 
   }
 
   const toggleColor = (color) => {
-    if (selectedColors.includes(color)) {
-      setSelectedColors(selectedColors.filter((c) => c !== color))
+    // Check if the color is selected by comparing IDs for objects
+    const isSelected = selectedColors.some(selected => 
+      (typeof selected === 'object' && typeof color === 'object') 
+        ? selected.id === color.id 
+        : selected === color
+    );
+    
+    if (isSelected) {
+      setSelectedColors(selectedColors.filter(c => 
+        (typeof c === 'object' && typeof color === 'object') 
+          ? c.id !== color.id 
+          : c !== color
+      ));
     } else {
-      setSelectedColors([...selectedColors, color])
+      setSelectedColors([...selectedColors, color]);
     }
+  }
+
+  // Helper function to get color display value
+  const getColorDisplay = (color) => {
+    // If color is an object with hexValue property, use that
+    if (color && typeof color === 'object' && color.hexValue) {
+      return color.hexValue;
+    }
+    
+    // If color is an object with name property, use the name to look up in colorMap
+    if (color && typeof color === 'object' && color.name) {
+      const colorName = color.name.toLowerCase();
+      return colorMap[colorName] || "#000000";
+    }
+    
+    // If color is a string, use it directly
+    if (typeof color === 'string') {
+      return colorMap[color.toLowerCase()] || color;
+    }
+    
+    // Default fallback
+    return "#000000";
+  }
+
+  // Helper function to get color name for display
+  const getColorName = (color) => {
+    if (color && typeof color === 'object' && color.name) {
+      return color.name;
+    }
+    return color;
+  }
+
+  // Check if a color is selected
+  const isColorSelected = (color) => {
+    return selectedColors.some(selected => 
+      (typeof selected === 'object' && typeof color === 'object') 
+        ? selected.id === color.id 
+        : selected === color
+    );
   }
 
   return (
@@ -29,16 +79,16 @@ export default function ColorFilter({ colors, selectedColors, setSelectedColors 
       <div className="flex flex-wrap gap-2">
         {colors.map((color) => (
           <button
-            key={color}
+            key={typeof color === 'object' ? color.id : color}
             onClick={() => toggleColor(color)}
             className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
-              selectedColors.includes(color) ? "border-gray-900" : "border-gray-200"
+              isColorSelected(color) ? "border-gray-900" : "border-gray-200"
             }`}
-            title={color}
+            title={getColorName(color)}
           >
             <span
               className="w-6 h-6 rounded-full"
-              style={{ backgroundColor: colorMap[color.toLowerCase()] || color }}
+              style={{ backgroundColor: getColorDisplay(color) }}
             ></span>
           </button>
         ))}

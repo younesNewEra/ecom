@@ -6,16 +6,92 @@ import path from "path";
 const prisma = new PrismaClient();
 
 // GET all products
-export async function GET() {
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    
+    // Extract filter parameters
+    const search = searchParams.get('search');
+    const minPrice = searchParams.get('minPrice') ? parseFloat(searchParams.get('minPrice')) : undefined;
+    const maxPrice = searchParams.get('maxPrice') ? parseFloat(searchParams.get('maxPrice')) : undefined;
+    const categories = searchParams.getAll('category');
+    const colors = searchParams.getAll('color');
+    const page = searchParams.get('page') ? parseInt(searchParams.get('page')) : 1;
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')) : 12;
+    const sort = searchParams.get('sort') || 'createdAt';
+    const order = searchParams.get('order') || 'desc';
+    
+    // Build filter conditions
+    const where = {};
+    
+    // Text search in name or description
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    
+    // Price range filter
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      where.price = {};
+      if (minPrice !== undefined) where.price.gte = minPrice;
+      if (maxPrice !== undefined) where.price.lte = maxPrice;
+    }
+    
+    // Category filter
+    if (categories.length > 0) {
+      where.categoryId = { in: categories };
+    }
+    
+    // Color filter
+    if (colors.length > 0) {
+      where.colors = {
+        some: {
+          colorId: { in: colors }
+        }
+      };
+    }
+    
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    
+    // Build sort object
+    const orderBy = {};
+    orderBy[sort] = order.toLowerCase(); // 'asc' or 'desc'
+    
+    // Count total matching products for pagination
+    const totalProducts = await prisma.product.count({ where });
+    
+    // Fetch products with pagination, filtering, and sorting
     const products = await prisma.product.findMany({
+      where,
       include: {
         category: true,
         sizes: { include: { size: true } },
         colors: { include: { color: true } },
       },
+      orderBy,
+      skip,
+      take: limit,
     });
-    return NextResponse.json(products);
+    
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalProducts / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+    
+    return NextResponse.json({
+      products,
+      pagination: {
+        page,
+        limit,
+        totalProducts,
+        totalPages,
+        hasNextPage,
+        hasPrevPage,
+      },
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json(
