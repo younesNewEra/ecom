@@ -11,7 +11,7 @@ const Home = () => {
 
   const slides = [
     {
-      image: '/silderBg1.jpg',
+      image: '/sliderBg3.jpg',
       title: 'Sale of the\nsummer collection',
       buttonText: 'Shop now',
       buttonLink: '/products'

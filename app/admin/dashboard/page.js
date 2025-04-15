@@ -1,24 +1,41 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, Package, ShoppingCart, TrendingUp } from "lucide-react"
 import { AreaChart, PieChart } from "@/components/ui/charts"
 
 export default function Dashboard() {
-  // Sample data for charts
-  const areaChartData = [
-    { name: "Jan", value: 400 },
-    { name: "Feb", value: 300 },
-    { name: "Mar", value: 500 },
-    { name: "Apr", value: 200 },
-    { name: "May", value: 450 },
-    { name: "Jun", value: 600 },
-    { name: "Jul", value: 350 },
-  ]
+  const [dashboardData, setDashboardData] = useState({
+    stockEvaluation: { value: "0.00", changePercentage: "0.0" },
+    totalSales: { value: "0.00", changePercentage: "0.0" },
+    totalProfit: { value: "0.00", changePercentage: "0.0" },
+    numberOfSales: { value: 0, changePercentage: "0.0" },
+    trafficData: [],
+    pieChartData: []
+  })
+  const [isLoading, setIsLoading] = useState(true)
 
-  const pieChartData = [
-    { name: "Delivered", value: 540, fill: "#10b981" },
-    { name: "Sold", value: 620, fill: "#3b82f6" },
-    { name: "Canceled", value: 210, fill: "#ef4444" },
-  ]
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/dashboard')
+      if (response.ok) {
+        const data = await response.json()
+        setDashboardData(data)
+      } else {
+        console.error("Failed to fetch dashboard data")
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -32,8 +49,14 @@ export default function Dashboard() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+            <div className="text-2xl font-bold">
+              ${isLoading ? "..." : dashboardData.stockEvaluation.value}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {isLoading 
+                ? "Loading..." 
+                : `${dashboardData.stockEvaluation.changePercentage > 0 ? "+" : ""}${dashboardData.stockEvaluation.changePercentage}% from last month`}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -42,8 +65,14 @@ export default function Dashboard() {
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$21,432.50</div>
-            <p className="text-xs text-muted-foreground">+15% from last month</p>
+            <div className="text-2xl font-bold">
+              ${isLoading ? "..." : dashboardData.totalSales.value}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {isLoading 
+                ? "Loading..." 
+                : `${dashboardData.totalSales.changePercentage > 0 ? "+" : ""}${dashboardData.totalSales.changePercentage}% from last month`}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -52,8 +81,14 @@ export default function Dashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$12,234.89</div>
-            <p className="text-xs text-muted-foreground">+18.2% from last month</p>
+            <div className="text-2xl font-bold">
+              ${isLoading ? "..." : dashboardData.totalProfit.value}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {isLoading 
+                ? "Loading..." 
+                : `${dashboardData.totalProfit.changePercentage > 0 ? "+" : ""}${dashboardData.totalProfit.changePercentage}% from last month`}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -62,8 +97,14 @@ export default function Dashboard() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,370</div>
-            <p className="text-xs text-muted-foreground">+12.3% from last month</p>
+            <div className="text-2xl font-bold">
+              {isLoading ? "..." : dashboardData.numberOfSales.value}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {isLoading 
+                ? "Loading..." 
+                : `${dashboardData.numberOfSales.changePercentage > 0 ? "+" : ""}${dashboardData.numberOfSales.changePercentage}% from last month`}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -73,14 +114,18 @@ export default function Dashboard() {
             <CardTitle>Website Traffic</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
-            <AreaChart
-              data={areaChartData}
-              index="name"
-              categories={["value"]}
-              colors={["blue"]}
-              valueFormatter={(value) => `${value} visits`}
-              className="h-[300px]"
-            />
+            {isLoading ? (
+              <div className="h-[300px] flex items-center justify-center">Loading chart data...</div>
+            ) : (
+              <AreaChart
+                data={dashboardData.trafficData}
+                index="name"
+                categories={["value"]}
+                colors={["blue"]}
+                valueFormatter={(value) => `${value} visits`}
+                className="h-[300px]"
+              />
+            )}
           </CardContent>
         </Card>
         <Card className="col-span-3">
@@ -88,13 +133,17 @@ export default function Dashboard() {
             <CardTitle>Order Status</CardTitle>
           </CardHeader>
           <CardContent className="flex justify-center items-center">
-            <PieChart
-              data={pieChartData}
-              index="name"
-              categories={["value"]}
-              valueFormatter={(value) => `${value} orders`}
-              className="h-[300px]"
-            />
+            {isLoading ? (
+              <div className="h-[300px] flex items-center justify-center">Loading chart data...</div>
+            ) : (
+              <PieChart
+                data={dashboardData.pieChartData}
+                index="name"
+                categories={["value"]}
+                valueFormatter={(value) => `${value} orders`}
+                className="h-[300px]"
+              />
+            )}
           </CardContent>
         </Card>
       </div>

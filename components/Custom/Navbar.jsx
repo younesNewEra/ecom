@@ -1,22 +1,43 @@
 "use client"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { ShoppingCart, User, Menu, X, Search, Trash2, Plus, Minus } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { ShoppingCart, User, Menu, X, Search, Trash2, Plus, Minus, Loader2 } from "lucide-react"
+import { getCartItems, updateCartItem, removeFromCart } from "@/lib/cart"
+import { formatCurrency } from "@/lib/utils"
 
 export default function Navbar() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
   const pathname = usePathname()
 
-  // Sample cart items
-  const [cartItems, setCartItems] = useState([
-    { id: 1, name: "Premium T-Shirt", price: 29.99, quantity: 1, image: "/placeholder.svg" },
-    { id: 2, name: "Designer Jeans", price: 89.99, quantity: 1, image: "/placeholder.svg" },
-    { id: 3, name: "Casual Sneakers", price: 59.99, quantity: 1, image: "/placeholder.svg" },
-  ])
+  // Cart state
+  const [cartItems, setCartItems] = useState([])
+  const [isCartLoading, setIsCartLoading] = useState(false)
+  const [isCartUpdating, setIsCartUpdating] = useState(false)
+
+  // Load cart items from API
+  const fetchCartItems = async () => {
+    try {
+      setIsCartLoading(true)
+      const items = await getCartItems()
+      setCartItems(items)
+    } catch (error) {
+      console.error("Error fetching cart:", error)
+    } finally {
+      setIsCartLoading(false)
+    }
+  }
+
+  // Fetch cart items when component mounts or cart is opened
+  useEffect(() => {
+    if (cartOpen) {
+      fetchCartItems()
+    }
+  }, [cartOpen])
 
   // Handle scroll effect
   useEffect(() => {
@@ -46,18 +67,37 @@ export default function Navbar() {
   }, [cartOpen, isOpen])
 
   // Cart functions
-  const updateQuantity = (id, change) => {
-    setCartItems(
-      cartItems.map((item) => (item.id === id ? { ...item, quantity: Math.max(1, item.quantity + change) } : item)),
-    )
+  const updateQuantity = async (productId, quantity, colorId = null, sizeId = null) => {
+    try {
+      setIsCartUpdating(true)
+      await updateCartItem(productId, quantity, colorId, sizeId)
+      fetchCartItems()
+    } catch (error) {
+      console.error("Error updating cart item:", error)
+    } finally {
+      setIsCartUpdating(false)
+    }
   }
 
-  const removeItem = (id) => {
-    setCartItems(cartItems.filter((item) => item.id !== id))
+  const removeItem = async (productId, colorId = null, sizeId = null) => {
+    try {
+      setIsCartUpdating(true)
+      await removeFromCart(productId, colorId, sizeId)
+      fetchCartItems()
+    } catch (error) {
+      console.error("Error removing cart item:", error)
+    } finally {
+      setIsCartUpdating(false)
+    }
   }
 
-  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0)
+  const handleCheckout = () => {
+    setCartOpen(false)
+    router.push('/checkout')
+  }
+
   const itemCount = cartItems.reduce((count, item) => count + item.quantity, 0)
+  const cartTotal = cartItems.reduce((total, item) => total + (item.product?.price || 0) * item.quantity, 0)
   const isProductPage = pathname.startsWith("/products") || pathname.startsWith("/product") || pathname.startsWith("/checkout");
 
   return (
@@ -75,7 +115,7 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {["Products", "Categories", "Sale"].map((item) => (
+            {["Home", "Products"].map((item) => (
               <Link
                 key={item}
                 href={`/${item.toLowerCase()}`}
@@ -130,21 +170,35 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="flex items-center space-x-2 md:hidden">
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className={`p-2 focus:outline-none z-50 transition-colors ${
-              isOpen || scrolled || isProductPage ? "text-gray-900" : "text-white"
-            }`}
-            aria-label={isOpen ? "Close menu" : "Open menu"}
-          >
-            {isOpen ? (
-              <X size={24} className={isOpen || scrolled || isProductPage ? "text-gray-900" : "text-white"} />
-            ) : (
-              <Menu size={24} className={scrolled || isProductPage ? "text-gray-900" : "text-white"} />
-            )}
-          </button>
-
-
+            {/* Mobile cart button */}
+            <button
+              onClick={() => setCartOpen(true)}
+              className={`relative p-2 rounded-full transition-colors mr-2 ${
+                isProductPage || scrolled ? "hover:bg-gray-100 text-gray-900" : "hover:bg-white/10 text-white"
+              }`}
+              aria-label="Cart"
+            >
+              <ShoppingCart size={20} />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                  {itemCount}
+                </span>
+              )}
+            </button>
+            
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className={`p-2 focus:outline-none z-50 transition-colors ${
+                isOpen || scrolled || isProductPage ? "text-gray-900" : "text-white"
+              }`}
+              aria-label={isOpen ? "Close menu" : "Open menu"}
+            >
+              {isOpen ? (
+                <X size={24} className={isOpen || scrolled || isProductPage ? "text-gray-900" : "text-white"} />
+              ) : (
+                <Menu size={24} className={scrolled || isProductPage ? "text-gray-900" : "text-white"} />
+              )}
+            </button>
           </div>
         </div>
 
@@ -211,45 +265,66 @@ export default function Navbar() {
           </button>
         </div>
 
-        {cartItems.length > 0 ? (
+        {isCartLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-600">Loading your cart...</span>
+          </div>
+        ) : cartItems.length > 0 ? (
           <>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {cartItems.map((item) => (
-                <div key={item.id} className="flex items-center space-x-4 border-b pb-4">
+                <div 
+                  key={`${item.productId}-${item.colorId || ''}-${item.sizeId || ''}`} 
+                  className="flex items-center space-x-4 border-b pb-4"
+                >
                   <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden flex-shrink-0">
                     <img
-                      src={item.image || "/placeholder.svg"}
-                      alt={item.name}
+                      src={item.product?.imageUrl || "/product-images/default-product.jpg"}
+                      alt={item.product?.name}
                       className="w-full h-full object-cover"
                       width={80}
                       height={80}
                     />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-medium">{item.name}</h3>
-                    <p className="text-gray-600">${item.price.toFixed(2)}</p>
+                    <h3 className="font-medium">{item.product?.name}</h3>
+                    <p className="text-gray-600">{formatCurrency(item.product?.price || 0)}</p>
+                    
+                    {/* Display color and size if applicable */}
+                    {(item.color || item.size) && (
+                      <div className="text-sm text-gray-500 mt-1">
+                        {item.color && <span>Color: {item.color.name}</span>}
+                        {item.color && item.size && <span> | </span>}
+                        {item.size && <span>Size: {item.size.name}</span>}
+                      </div>
+                    )}
+                    
                     <div className="flex items-center mt-2">
                       <button
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="p-1 rounded-full hover:bg-gray-100"
+                        onClick={() => updateQuantity(item.productId, Math.max(1, item.quantity - 1), item.colorId, item.sizeId)}
+                        className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50"
                         aria-label="Decrease quantity"
+                        disabled={isCartUpdating}
                       >
                         <Minus size={16} />
                       </button>
                       <span className="mx-2">{item.quantity}</span>
                       <button
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="p-1 rounded-full hover:bg-gray-100"
+                        onClick={() => updateQuantity(item.productId, item.quantity + 1, item.colorId, item.sizeId)}
+                        className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50"
                         aria-label="Increase quantity"
+                        disabled={isCartUpdating}
                       >
                         <Plus size={16} />
                       </button>
                     </div>
                   </div>
                   <button
-                    onClick={() => removeItem(item.id)}
-                    className="p-2 text-gray-500 hover:text-red-500"
+                    onClick={() => removeItem(item.productId, item.colorId, item.sizeId)}
+                    className="p-2 text-gray-500 hover:text-red-500 disabled:opacity-50"
                     aria-label="Remove item"
+                    disabled={isCartUpdating}
                   >
                     <Trash2 size={20} />
                   </button>
@@ -260,11 +335,22 @@ export default function Navbar() {
             <div className="border-t p-4 space-y-4">
               <div className="flex justify-between text-lg font-semibold">
                 <span>Subtotal:</span>
-                <span>${cartTotal.toFixed(2)}</span>
+                <span>{formatCurrency(cartTotal)}</span>
               </div>
               <p className="text-sm text-gray-500">Shipping and taxes calculated at checkout</p>
-              <button className="w-full bg-black text-white py-3 rounded-md hover:bg-gray-800 transition-colors">
-                Checkout
+              <button 
+                className="w-full bg-black text-white py-3 rounded-md hover:bg-gray-800 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                onClick={handleCheckout}
+                disabled={isCartUpdating || cartItems.length === 0}
+              >
+                {isCartUpdating ? (
+                  <>
+                    <Loader2 className="inline-block mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Checkout"
+                )}
               </button>
               <button
                 onClick={() => setCartOpen(false)}

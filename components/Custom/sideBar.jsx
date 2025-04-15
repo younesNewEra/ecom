@@ -54,7 +54,7 @@ export default function Sidebar() {
       {/* Sidebar */}
       <div
         className={cn(
-          "inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-transform duration-300 ease-in-out md:translate-x-0",
+          "absolute lg:relative xl:relative inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-transform duration-300 ease-in-out md:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

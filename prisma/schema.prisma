@@ -111,13 +111,17 @@ model ProductSize {
 
 model Order {
   id          String      @id @default(cuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
+  userId      String?     // Making this optional
+  user        User?       @relation(fields: [userId], references: [id])  // Making this optional
   status      OrderStatus @default(PENDING)
   totalAmount Float
   items       OrderItem[]
   shippingAddress String
   paymentMethod String
+  // Guest order information
+  guestName   String?
+  guestEmail  String?
+  guestPhone  String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   

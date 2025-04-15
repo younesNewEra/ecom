@@ -1,85 +1,114 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
+import { Search, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [customers, setCustomers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [customerToDelete, setCustomerToDelete] = useState(null)
 
-  // Sample data
-  const customers = [
-    {
-      id: 1,
-      name: "John Smith",
-      email: "john.smith@example.com",
-      totalOrders: 5,
-      lastOrderDate: "2023-04-15",
-      orderHistory: [
-        { id: "ORD-001", date: "2023-04-15", total: 124.99, status: "Delivered" },
-        { id: "ORD-008", date: "2023-03-22", total: 89.5, status: "Delivered" },
-        { id: "ORD-015", date: "2023-02-10", total: 45.25, status: "Delivered" },
-        { id: "ORD-023", date: "2023-01-05", total: 210.75, status: "Delivered" },
-        { id: "ORD-031", date: "2022-12-18", total: 75.0, status: "Delivered" },
-      ],
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      email: "sarah.johnson@example.com",
-      totalOrders: 3,
-      lastOrderDate: "2023-04-16",
-      orderHistory: [
-        { id: "ORD-002", date: "2023-04-16", total: 89.5, status: "Sold" },
-        { id: "ORD-012", date: "2023-03-01", total: 145.75, status: "Delivered" },
-        { id: "ORD-024", date: "2023-01-12", total: 67.25, status: "Delivered" },
-      ],
-    },
-    {
-      id: 3,
-      name: "Michael Brown",
-      email: "michael.brown@example.com",
-      totalOrders: 2,
-      lastOrderDate: "2023-04-14",
-      orderHistory: [
-        { id: "ORD-003", date: "2023-04-14", total: 210.75, status: "Canceled" },
-        { id: "ORD-018", date: "2023-02-28", total: 150.0, status: "Delivered" },
-      ],
-    },
-    {
-      id: 4,
-      name: "Emily Davis",
-      email: "emily.davis@example.com",
-      totalOrders: 4,
-      lastOrderDate: "2023-04-17",
-      orderHistory: [
-        { id: "ORD-004", date: "2023-04-17", total: 45.25, status: "Delivered" },
-        { id: "ORD-011", date: "2023-03-05", total: 120.5, status: "Delivered" },
-        { id: "ORD-019", date: "2023-02-15", total: 85.75, status: "Delivered" },
-        { id: "ORD-027", date: "2023-01-20", total: 35.99, status: "Canceled" },
-      ],
-    },
-    {
-      id: 5,
-      name: "Robert Wilson",
-      email: "robert.wilson@example.com",
-      totalOrders: 1,
-      lastOrderDate: "2023-04-18",
-      orderHistory: [{ id: "ORD-005", date: "2023-04-18", total: 175.0, status: "Sold" }],
-    },
-  ]
+  useEffect(() => {
+    fetchCustomers()
+  }, [])
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/customers')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch customers')
+      }
+      
+      const data = await response.json()
+      setCustomers(data)
+    } catch (err) {
+      console.error('Error fetching customers:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteClick = (customer) => {
+    setCustomerToDelete(customer)
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!customerToDelete) return
+    
+    try {
+      const response = await fetch(`/api/customers/${customerToDelete.id}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete customer')
+      }
+      
+      // Remove customer from state
+      setCustomers(customers.filter(c => c.id !== customerToDelete.id))
+      toast.success(`${customerToDelete.name} has been deleted`)
+      setDeleteConfirmOpen(false)
+      setCustomerToDelete(null)
+    } catch (err) {
+      console.error('Error deleting customer:', err)
+      toast.error(`Error: ${err.message}`)
+    }
+  }
 
   // Filter customers based on search term
   const filteredCustomers = customers.filter(
     (customer) =>
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase()),
+      customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  if (loading) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
+        </div>
+        <Card>
+          <CardContent className="p-8">
+            <div className="flex justify-center items-center h-40">
+              <p className="text-muted-foreground">Loading customers...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
+        </div>
+        <Card>
+          <CardContent className="p-8">
+            <div className="flex justify-center items-center h-40">
+              <p className="text-red-500">Error: {error}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -116,23 +145,27 @@ export default function CustomersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCustomers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell className="font-medium">{customer.name}</TableCell>
-                  <TableCell>{customer.email}</TableCell>
-                  <TableCell>{customer.totalOrders}</TableCell>
-                  <TableCell>{customer.lastOrderDate}</TableCell>
-                  <TableCell>
-                    <Button variant="outline" onClick={() => setSelectedCustomer(customer)}>
-                      View Details
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredCustomers.length === 0 && (
+              {filteredCustomers.length > 0 ? (
+                filteredCustomers.map((customer) => (
+                  <TableRow key={customer.id}>
+                    <TableCell className="font-medium">{customer.name}</TableCell>
+                    <TableCell>{customer.email}</TableCell>
+                    <TableCell>{customer.totalOrders}</TableCell>
+                    <TableCell>{customer.lastOrderDate || 'No orders yet'}</TableCell>
+                    <TableCell className="space-x-2">
+                      <Button variant="outline" onClick={() => setSelectedCustomer(customer)}>
+                        View Details
+                      </Button>
+                      <Button variant="destructive" size="icon" onClick={() => handleDeleteClick(customer)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-4">
-                    No customers found matching your search.
+                    {searchTerm ? 'No customers found matching your search.' : 'No customers found.'}
                   </TableCell>
                 </TableRow>
               )}
@@ -166,35 +199,66 @@ export default function CustomersPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Last Order Date</h3>
-                  <p className="text-base">{selectedCustomer.lastOrderDate}</p>
+                  <p className="text-base">{selectedCustomer.lastOrderDate || 'No orders yet'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Customer Since</h3>
+                  <p className="text-base">{new Date(selectedCustomer.createdAt).toLocaleDateString()}</p>
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Order History</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order ID</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedCustomer.orderHistory.map((order) => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.id}</TableCell>
-                        <TableCell>{order.date}</TableCell>
-                        <TableCell>{order.status}</TableCell>
-                        <TableCell className="text-right">${order.total.toFixed(2)}</TableCell>
+              {selectedCustomer.orderHistory && selectedCustomer.orderHistory.length > 0 ? (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Order History</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order ID</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedCustomer.orderHistory.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-medium">{order.id}</TableCell>
+                          <TableCell>{order.date}</TableCell>
+                          <TableCell>{order.status}</TableCell>
+                          <TableCell className="text-right">${order.total.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Order History</h3>
+                  <p className="text-muted-foreground">This customer has not placed any orders yet.</p>
+                </div>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {customerToDelete?.name}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex items-center justify-end space-x-2">
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

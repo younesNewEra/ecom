@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Star, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Star, Loader2, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getProductById } from "@/lib/products-api"
 import { formatCurrency } from "@/lib/utils"
+import { addToCart } from "@/lib/cart"
 
 export default function ProductPage() {
   const router = useRouter()
@@ -20,6 +21,8 @@ export default function ProductPage() {
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const [notification, setNotification] = useState({ show: false, message: "", type: "" })
 
   // Fetch product data
   useEffect(() => {
@@ -50,6 +53,19 @@ export default function ProductPage() {
     }
   }, [id])
 
+  // Hide notification after a timeout
+  useEffect(() => {
+    let timeoutId;
+    if (notification.show) {
+      timeoutId = setTimeout(() => {
+        setNotification({ show: false, message: "", type: "" });
+      }, 3000);
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [notification.show]);
+
   // Handle image carousel
   const nextImage = () => {
     if (product?.images?.length > 0) {
@@ -72,11 +88,50 @@ export default function ProductPage() {
   const increaseQuantity = () => setQuantity((prev) => prev + 1)
   const decreaseQuantity = () => setQuantity((prev) => Math.max(1, prev - 1))
 
+  // Find selected color and size IDs
+  const getSelectedColorId = () => {
+    if (!product || !selectedColor) return null;
+    const colorItem = product.colors.find(c => c.color.name === selectedColor);
+    return colorItem ? colorItem.colorId : null;
+  }
+
+  const getSelectedSizeId = () => {
+    if (!product || !selectedSize) return null;
+    const sizeItem = product.sizes.find(s => s.size.name === selectedSize);
+    return sizeItem ? sizeItem.sizeId : null;
+  }
+
+  // Handle add to cart
+  const handleAddToCart = async () => {
+    try {
+      setIsAddingToCart(true);
+      
+      const colorId = getSelectedColorId();
+      const sizeId = getSelectedSizeId();
+      
+      await addToCart(product, quantity, colorId, sizeId);
+      
+      setNotification({
+        show: true,
+        message: `${quantity} x ${product.name} added to your cart`,
+        type: "success"
+      });
+    } catch (error) {
+      setNotification({
+        show: true,
+        message: error.message || "Failed to add item to cart",
+        type: "error"
+      });
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
   // Handle buy now
   const handleBuyNow = () => {
     // Navigate to checkout page with product details
     router.push(
-      `/checkout?product=${encodeURIComponent(product.name)}&color=${selectedColor}&size=${selectedSize}&quantity=${quantity}`,
+      `/checkout?productId=${product.id}&colorId=${getSelectedColorId() || ''}&sizeId=${getSelectedSizeId() || ''}&quantity=${quantity}`,
     )
   }
   
@@ -125,6 +180,26 @@ export default function ProductPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl mt-16">
+      {/* Notification */}
+      {notification.show && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-md 
+          ${notification.type === 'success' ? 'bg-green-100 border border-green-200' : 
+          'bg-red-100 border border-red-200'} 
+          max-w-md`}
+        >
+          <div className="flex items-center">
+            {notification.type === 'success' ? (
+              <CheckCircle className={`h-5 w-5 mr-2 text-green-500`} />
+            ) : (
+              <div className="h-5 w-5 mr-2 text-red-500">!</div>
+            )}
+            <span className={notification.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+              {notification.message}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Product Images Carousel */}
         <div className="relative">
@@ -285,9 +360,14 @@ export default function ProductPage() {
             <Button 
               className="flex-1 flex items-center gap-2" 
               variant="outline"
-              disabled={product.stock <= 0}
+              disabled={product.stock <= 0 || isAddingToCart}
+              onClick={handleAddToCart}
             >
-              <ShoppingCart className="h-5 w-5" />
+              {isAddingToCart ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <ShoppingCart className="h-5 w-5" />
+              )}
               Add to Cart
             </Button>
             <Button 
