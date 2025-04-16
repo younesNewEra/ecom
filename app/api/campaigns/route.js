@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminCache, cacheAdminResponse, clearAdminCache } from "@/lib/utils";
 
 // GET all campaigns
 export async function GET() {
   try {
+    // Check if we have a cached version of the campaigns
+    const cachedCampaigns = getAdminCache("campaigns");
+    if (cachedCampaigns) {
+      return NextResponse.json(cachedCampaigns);
+    }
+    
     const campaigns = await prisma.campaign.findMany({
       include: {
         products: {
@@ -34,6 +41,9 @@ export async function GET() {
       })),
       status: getStatus(campaign.startDate, campaign.endDate),
     }));
+    
+    // Cache the campaigns data
+    cacheAdminResponse("campaigns", formattedCampaigns);
 
     return NextResponse.json(formattedCampaigns);
   } catch (error) {

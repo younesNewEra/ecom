@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Star, Loader2, CheckCircle } from "lucide-react"
@@ -23,35 +23,61 @@ export default function ProductPage() {
   const [error, setError] = useState(null)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [notification, setNotification] = useState({ show: false, message: "", type: "" })
+  const [imagesLoaded, setImagesLoaded] = useState({})
 
   // Fetch product data
   useEffect(() => {
+    // Tracking component mounted state to avoid state updates after unmount
+    let isMounted = true;
+    
     async function loadProduct() {
       try {
         setLoading(true)
         const productData = await getProductById(id)
-        setProduct(productData)
         
-        // Set default selected color and size if available
-        if (productData.colors && productData.colors.length > 0) {
-          setSelectedColor(productData.colors[0].color.name)
-        }
-        
-        if (productData.sizes && productData.sizes.length > 0) {
-          setSelectedSize(productData.sizes[0].size.name)
+        if (isMounted) {
+          setProduct(productData)
+          
+          // Set default selected color and size if available
+          if (productData.colors && productData.colors.length > 0) {
+            setSelectedColor(productData.colors[0].color.name)
+          }
+          
+          if (productData.sizes && productData.sizes.length > 0) {
+            setSelectedSize(productData.sizes[0].size.name)
+          }
+          
+          // Pre-mark the first image as loaded since it will be loaded with priority
+          const productImages = getProductImages(productData);
+          if (productImages.length > 0) {
+            setImagesLoaded(prev => ({ ...prev, [productImages[0]]: true }));
+          }
         }
       } catch (err) {
         console.error("Error loading product:", err)
-        setError("Failed to load product details. Please try again later.")
+        if (isMounted) {
+          setError("Failed to load product details. Please try again later.")
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
     
     if (id) {
       loadProduct()
     }
+    
+    return () => {
+      isMounted = false;
+    }
   }, [id])
+
+  // Handle image load events
+  const handleImageLoad = useCallback((imageSrc) => {
+    setImagesLoaded(prev => ({ ...prev, [imageSrc]: true }));
+  }, []);
 
   // Hide notification after a timeout
   useEffect(() => {
@@ -66,40 +92,56 @@ export default function ProductPage() {
     };
   }, [notification.show]);
 
-  // Handle image carousel
-  const nextImage = () => {
-    if (product?.images?.length > 0) {
-      setCurrentImage((prev) => (prev + 1) % product.images.length)
-    } else {
-      // If no multiple images, just use the main product image
-      setCurrentImage(0)
+  // Get product images with memoization to avoid recalculation
+  const getProductImages = useCallback((productData) => {
+    if (!productData) return ["/placeholder.svg"]
+    
+    // If product has multiple images stored in an 'images' array property
+    if (productData.images && productData.images.length > 0) {
+      return productData.images
     }
-  }
+    
+    // Otherwise just return the main product image
+    return [productData.imageUrl]
+  }, []);
 
-  const prevImage = () => {
-    if (product?.images?.length > 0) {
-      setCurrentImage((prev) => (prev - 1 + product.images.length) % product.images.length)
-    } else {
-      setCurrentImage(0)
+  // Memoize the images array to avoid unnecessary recalculations
+  const images = useMemo(() => product ? getProductImages(product) : ["/placeholder.svg"], [product, getProductImages]);
+
+  // Handle image carousel
+  const nextImage = useCallback(() => {
+    if (images.length > 0) {
+      setCurrentImage((prev) => (prev + 1) % images.length)
     }
-  }
+  }, [images]);
+
+  const prevImage = useCallback(() => {
+    if (images.length > 0) {
+      setCurrentImage((prev) => (prev - 1 + images.length) % images.length)
+    }
+  }, [images]);
 
   // Quantity controls
-  const increaseQuantity = () => setQuantity((prev) => prev + 1)
-  const decreaseQuantity = () => setQuantity((prev) => Math.max(1, prev - 1))
+  const increaseQuantity = useCallback(() => {
+    setQuantity((prev) => Math.min(prev + 1, product?.stock || Infinity))
+  }, [product]);
+  
+  const decreaseQuantity = useCallback(() => {
+    setQuantity((prev) => Math.max(1, prev - 1))
+  }, []);
 
   // Find selected color and size IDs
-  const getSelectedColorId = () => {
+  const getSelectedColorId = useCallback(() => {
     if (!product || !selectedColor) return null;
     const colorItem = product.colors.find(c => c.color.name === selectedColor);
     return colorItem ? colorItem.colorId : null;
-  }
+  }, [product, selectedColor]);
 
-  const getSelectedSizeId = () => {
+  const getSelectedSizeId = useCallback(() => {
     if (!product || !selectedSize) return null;
     const sizeItem = product.sizes.find(s => s.size.name === selectedSize);
     return sizeItem ? sizeItem.sizeId : null;
-  }
+  }, [product, selectedSize]);
 
   // Handle add to cart
   const handleAddToCart = async () => {
@@ -134,19 +176,20 @@ export default function ProductPage() {
       `/checkout?productId=${product.id}&colorId=${getSelectedColorId() || ''}&sizeId=${getSelectedSizeId() || ''}&quantity=${quantity}`,
     )
   }
-  
-  // Get product images
-  const getProductImages = () => {
-    if (!product) return ["/placeholder.svg"]
+
+  // Keyboard controls for image carousel
+  useEffect(() => {
+    const handleKeydown = (e) => {
+      if (e.key === 'ArrowLeft') {
+        prevImage();
+      } else if (e.key === 'ArrowRight') {
+        nextImage();
+      }
+    };
     
-    // If product has multiple images stored in an 'images' array property
-    if (product.images && product.images.length > 0) {
-      return product.images
-    }
-    
-    // Otherwise just return the main product image
-    return [product.imageUrl]
-  }
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [nextImage, prevImage]);
 
   if (loading) {
     return (
@@ -176,7 +219,6 @@ export default function ProductPage() {
   // Extract product colors and sizes
   const productColors = product.colors.map(c => c.color.name)
   const productSizes = product.sizes.map(s => s.size.name)
-  const images = getProductImages()
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl mt-16">
@@ -204,13 +246,26 @@ export default function ProductPage() {
         {/* Product Images Carousel */}
         <div className="relative">
           <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100">
-            <Image
-              src={images[currentImage] || "/placeholder.svg"}
-              alt={`${product.name} - Image ${currentImage + 1}`}
-              fill
-              className="object-cover"
-              priority
-            />
+            {/* Main image with loading indicator */}
+            <div className="relative w-full h-full">
+              <Image
+                src={images[currentImage] || "/placeholder.svg"}
+                alt={`${product.name} - Image ${currentImage + 1}`}
+                fill
+                className={`object-cover transition-opacity duration-300 ${
+                  imagesLoaded[images[currentImage]] ? 'opacity-100' : 'opacity-0'
+                }`}
+                priority={currentImage === 0}
+                onLoad={() => handleImageLoad(images[currentImage])}
+              />
+              
+              {/* Loading spinner */}
+              {!imagesLoaded[images[currentImage]] && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              )}
+            </div>
 
             {/* Carousel Navigation Buttons */}
             {images.length > 1 && (
@@ -236,16 +291,31 @@ export default function ProductPage() {
 
           {/* Thumbnail Navigation */}
           {images.length > 1 && (
-            <div className="flex gap-2 mt-4 justify-center">
+            <div className="flex gap-2 mt-4 overflow-x-auto pb-2 justify-center">
               {images.map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentImage(index)}
-                  className={`relative w-16 h-16 rounded-md overflow-hidden ${
-                    currentImage === index ? "ring-2 ring-black" : "opacity-70"
+                  className={`relative w-16 h-16 rounded-md overflow-hidden flex-shrink-0 ${
+                    currentImage === index ? "ring-2 ring-black" : "opacity-70 hover:opacity-100"
                   }`}
                 >
-                  <Image src={image || "/placeholder.svg"} alt={`Thumbnail ${index + 1}`} fill className="object-cover" />
+                  <Image 
+                    src={image || "/placeholder.svg"} 
+                    alt={`Thumbnail ${index + 1}`} 
+                    fill 
+                    className="object-cover"
+                    loading="lazy"
+                    sizes="64px"
+                    onLoad={() => handleImageLoad(image)}
+                  />
+                  
+                  {/* Loading spinner for thumbnails */}
+                  {!imagesLoaded[image] && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -285,7 +355,7 @@ export default function ProductPage() {
           {productColors.length > 0 && (
             <div>
               <h3 className="font-medium mb-2">Color</h3>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {productColors.map((color) => (
                   <button
                     key={color}
@@ -337,7 +407,7 @@ export default function ProductPage() {
             <div className="flex items-center border rounded-md w-fit">
               <button 
                 onClick={decreaseQuantity} 
-                className="px-3 py-2 hover:bg-gray-100" 
+                className="px-3 py-2 hover:bg-gray-100 disabled:opacity-50" 
                 aria-label="Decrease quantity"
                 disabled={product.stock <= 0}
               >
@@ -346,7 +416,7 @@ export default function ProductPage() {
               <span className="px-4 py-2 border-x">{quantity}</span>
               <button 
                 onClick={increaseQuantity} 
-                className="px-3 py-2 hover:bg-gray-100" 
+                className="px-3 py-2 hover:bg-gray-100 disabled:opacity-50" 
                 aria-label="Increase quantity"
                 disabled={product.stock <= 0 || quantity >= product.stock}
               >

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { cookies } from "next/headers";
+import { getAdminCache, cacheAdminResponse, clearAdminCache } from "@/lib/utils";
 
 const prisma = new PrismaClient();
 
@@ -254,6 +255,12 @@ export async function POST(request) {
 // Get all orders (for admin)
 export async function GET(request) {
   try {
+    // Check if we have a cached version of the orders
+    const cachedOrders = getAdminCache("orders");
+    if (cachedOrders) {
+      return NextResponse.json({ orders: cachedOrders });
+    }
+    
     const orders = await prisma.order.findMany({
       include: {
         user: {
@@ -273,6 +280,9 @@ export async function GET(request) {
         createdAt: 'desc',
       },
     });
+    
+    // Cache the orders for 5 minutes
+    cacheAdminResponse("orders", orders);
     
     return NextResponse.json({ orders });
   } catch (error) {

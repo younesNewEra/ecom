@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { getAdminCache, cacheAdminResponse, clearAdminCache } from "@/lib/utils";
 
 const prisma = new PrismaClient();
 
 // GET all categories
 export async function GET() {
   try {
+    // Check if we have a cached version of the categories
+    const cachedCategories = getAdminCache("categories");
+    if (cachedCategories) {
+      return NextResponse.json(cachedCategories);
+    }
+    
     const categories = await prisma.category.findMany({
       include: {
         _count: {
@@ -16,13 +23,16 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json(
-      categories.map(cat => ({
-        id: cat.id,
-        name: cat.name,
-        productsCount: cat._count.products
-      }))
-    );
+    const formattedCategories = categories.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      productsCount: cat._count.products
+    }));
+    
+    // Cache the categories data
+    cacheAdminResponse("categories", formattedCategories);
+
+    return NextResponse.json(formattedCategories);
   } catch (err) {
     console.error(err);
     return NextResponse.json(

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { ShoppingCart, User, Menu, X, Search, Trash2, Plus, Minus, Loader2 } from "lucide-react"
-import { getCartItems, updateCartItem, removeFromCart } from "@/lib/cart"
+import { getCartItems, updateCartItem, removeFromCart, invalidateCartCache } from "@/lib/cart"
 import { formatCurrency } from "@/lib/utils"
 
 export default function Navbar() {
@@ -19,11 +19,11 @@ export default function Navbar() {
   const [isCartLoading, setIsCartLoading] = useState(false)
   const [isCartUpdating, setIsCartUpdating] = useState(false)
 
-  // Load cart items from API
-  const fetchCartItems = async () => {
+  // Load cart items from API with caching
+  const fetchCartItems = async (forceRefresh = false) => {
     try {
       setIsCartLoading(true)
-      const items = await getCartItems()
+      const items = await getCartItems(forceRefresh)
       setCartItems(items)
     } catch (error) {
       console.error("Error fetching cart:", error)
@@ -66,12 +66,19 @@ export default function Navbar() {
     }
   }, [cartOpen, isOpen])
 
-  // Cart functions
+  // Cart functions with optimized response handling
   const updateQuantity = async (productId, quantity, colorId = null, sizeId = null) => {
     try {
       setIsCartUpdating(true)
-      await updateCartItem(productId, quantity, colorId, sizeId)
-      fetchCartItems()
+      const response = await updateCartItem(productId, quantity, colorId, sizeId)
+      
+      // If the API returned updated items, use them directly instead of making another API call
+      if (response.items) {
+        setCartItems(response.items)
+      } else {
+        // Fall back to fetching updated cart if items not included in response
+        await fetchCartItems(true)
+      }
     } catch (error) {
       console.error("Error updating cart item:", error)
     } finally {
@@ -82,8 +89,15 @@ export default function Navbar() {
   const removeItem = async (productId, colorId = null, sizeId = null) => {
     try {
       setIsCartUpdating(true)
-      await removeFromCart(productId, colorId, sizeId)
-      fetchCartItems()
+      const response = await removeFromCart(productId, colorId, sizeId)
+      
+      // If the API returned updated items, use them directly
+      if (response.items) {
+        setCartItems(response.items)
+      } else {
+        // Fall back to fetching updated cart if items not included in response
+        await fetchCartItems(true)
+      }
     } catch (error) {
       console.error("Error removing cart item:", error)
     } finally {
@@ -93,6 +107,8 @@ export default function Navbar() {
 
   const handleCheckout = () => {
     setCartOpen(false)
+    // Invalidate cart cache before navigating to checkout
+    invalidateCartCache()
     router.push('/checkout')
   }
 
@@ -285,6 +301,7 @@ export default function Navbar() {
                       className="w-full h-full object-cover"
                       width={80}
                       height={80}
+                      loading="lazy"
                     />
                   </div>
                   <div className="flex-1">

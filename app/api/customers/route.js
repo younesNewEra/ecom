@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminCache, cacheAdminResponse, clearAdminCache } from "@/lib/utils";
 
 // The same guest email used in the orders API
 const GUEST_USER_EMAIL = "guest-orders@system.internal";
 
 export async function GET(request) {
   try {
+    // Check if we have a cached version of the customers
+    const cachedCustomers = getAdminCache("customers");
+    if (cachedCustomers) {
+      return NextResponse.json(cachedCustomers);
+    }
+    
     // Fetch only registered users with CLIENT role and exclude the guest user
     const customers = await prisma.user.findMany({
       where: {
@@ -54,6 +61,9 @@ export async function GET(request) {
         createdAt: customer.createdAt
       };
     });
+    
+    // Cache the formatted customers data
+    cacheAdminResponse("customers", formattedCustomers);
 
     return NextResponse.json(formattedCustomers);
   } catch (error) {

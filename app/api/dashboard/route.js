@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminCache, cacheAdminResponse } from "@/lib/utils";
 
 export async function GET(request) {
   try {
+    // Check if we have a cached version of the dashboard data
+    const cachedData = getAdminCache("dashboard");
+    if (cachedData) {
+      return NextResponse.json(cachedData);
+    }
+    
     // Calculate date ranges for current and previous month
     const today = new Date();
     const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -173,7 +180,7 @@ export async function GET(request) {
       { name: "Jul", value: 350 },
     ]; // Placeholder data, would be from a traffic analytics service
 
-    return NextResponse.json({
+    const responseData = {
       stockEvaluation: {
         value: stockValue.toFixed(2),
         changePercentage: stockChangePercentage.toFixed(1)
@@ -192,7 +199,12 @@ export async function GET(request) {
       },
       trafficData,
       pieChartData
-    });
+    };
+    
+    // Cache the dashboard data for 5 minutes
+    cacheAdminResponse("dashboard", responseData);
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
     return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 });

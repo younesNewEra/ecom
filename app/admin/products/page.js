@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -620,9 +621,8 @@ export default function ProductsPage() {
                       </TableRow>
                     ) : (
                       products.map((product) => (
-                        <>
+                        <React.Fragment key={product.id}>
                           <TableRow
-                            key={product.id}
                             className="cursor-pointer"
                             onClick={() => toggleProductExpand(product.id)}
                           >
@@ -701,7 +701,7 @@ export default function ProductsPage() {
                               </TableCell>
                             </TableRow>
                           )}
-                        </>
+                        </React.Fragment>
                       ))
                     )}
                   </TableBody>

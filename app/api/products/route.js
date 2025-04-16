@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import fs from "fs/promises";
 import path from "path";
+import { cacheResponse, getCachedResponse, clearCache } from "@/lib/utils";
 
 const prisma = new PrismaClient();
 
@@ -20,6 +21,15 @@ export async function GET(request) {
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')) : 12;
     const sort = searchParams.get('sort') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
+    
+    // Create a cache key based on all filter parameters
+    const cacheKey = `products:${search || ''}:${minPrice || ''}:${maxPrice || ''}:${categories.join(',')}:${colors.join(',')}:${page}:${limit}:${sort}:${order}`;
+    
+    // Check if we have a cached response
+    const cachedData = getCachedResponse(cacheKey);
+    if (cachedData) {
+      return NextResponse.json(cachedData);
+    }
     
     // Build filter conditions
     const where = {};
@@ -81,7 +91,7 @@ export async function GET(request) {
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
     
-    return NextResponse.json({
+    const responseData = {
       products,
       pagination: {
         page,
@@ -91,7 +101,12 @@ export async function GET(request) {
         hasNextPage,
         hasPrevPage,
       },
-    });
+    };
+    
+    // Cache the response for 5 minutes
+    cacheResponse(cacheKey, responseData, 300000);
+    
+    return NextResponse.json(responseData);
   } catch (err) {
     console.error(err);
     return NextResponse.json(
@@ -254,6 +269,9 @@ export async function POST(request) {
         colors: { include: { color: true } },
       },
     });
+
+    // Clear products cache when creating a new product
+    clearCache('products:');
 
     return NextResponse.json(product);
   } catch (err) {
@@ -421,6 +439,10 @@ export async function PUT(request) {
       },
     });
 
+    // Clear products cache and specific product cache
+    clearCache('products:');
+    clearCache(`product:${id}`);
+
     return NextResponse.json(product);
   } catch (err) {
     console.error("Product update error:", err);
@@ -468,6 +490,10 @@ export async function DELETE(request) {
     
     // Delete the product
     await prisma.product.delete({ where: { id } });
+    
+    // Clear products cache and specific product cache
+    clearCache('products:');
+    clearCache(`product:${id}`);
     
     return NextResponse.json({ message: "Product deleted successfully" });
   } catch (err) {
