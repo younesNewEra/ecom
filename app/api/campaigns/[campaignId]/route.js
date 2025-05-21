@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { clearAdminCache } from "@/lib/utils";
 
 export async function GET(request, { params }) {
   try {
@@ -94,6 +95,9 @@ export async function PUT(request, { params }) {
       }
     });
     
+    // Clear the campaigns cache so future requests will fetch fresh data
+    clearAdminCache("campaigns");
+    
     return NextResponse.json(updatedCampaign);
   } catch (error) {
     console.error("Error updating campaign:", error);
@@ -109,6 +113,9 @@ export async function DELETE(request, { params }) {
     await prisma.campaign.delete({
       where: { id: campaignId }
     });
+    
+    // Clear the campaigns cache so future requests will fetch fresh data
+    clearAdminCache("campaigns");
     
     return NextResponse.json({ success: true });
   } catch (error) {

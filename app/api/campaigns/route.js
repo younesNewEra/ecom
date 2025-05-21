@@ -88,6 +88,9 @@ export async function POST(request) {
       }
     });
 
+    // Clear the campaigns cache so future requests will fetch fresh data
+    clearAdminCache("campaigns");
+
     return NextResponse.json(campaign, { status: 201 });
   } catch (error) {
     console.error("Error creating campaign:", error);

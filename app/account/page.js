@@ -100,42 +100,12 @@ export default function AuthPage() {
   return (
     <div className="flex min-h-screen w-full">
       {/* Left side - Visual */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-black">
-        <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
-        <div className="absolute inset-0 flex flex-col justify-between p-12 text-white">
-          <div>
-            <h1 className="text-3xl font-bold">Ecom</h1>
-          </div>
-          <div className="max-w-md">
-            <blockquote className="text-2xl font-light italic">
-              "The perfect blend of design and functionality for the modern web."
-            </blockquote>
-            <div className="mt-6 flex items-center gap-3">
-              <div className="h-12 w-12 overflow-hidden rounded-full bg-white/20 backdrop-blur-sm">
-                <Image
-                  src="/placeholder.svg"
-                  alt="User"
-                  width={48}
-                  height={48}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div>
-                <p className="font-medium">Alex Morgan</p>
-                <p className="text-sm opacity-80">Product Designer</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-6">
-            <div className="h-2 w-8 rounded-full bg-white/50" />
-            <div className="h-2 w-8 rounded-full bg-white" />
-            <div className="h-2 w-8 rounded-full bg-white/50" />
-          </div>
-        </div>
-
-        {/* Abstract shapes */}
-        <div className="absolute top-1/4 right-1/4 h-40 w-40 rounded-full bg-gray-700/30 blur-3xl" />
-        <div className="absolute bottom-1/3 left-1/3 h-60 w-60 rounded-full bg-gray-500/30 blur-3xl" />
+      <div className="hidden lg:flex lg:w-1/2 relative " style={{   backgroundImage: "url('./accountBg.jpg')",
+      backgroundSize: "cover",
+      backgroundPosition: "center", }}>
+        <h1 className="text-white text-3xl font-bold mt-16 ml-10">
+          <Link href={'/'}>Ecom</Link>
+        </h1>
       </div>
 
       {/* Right side - Form */}

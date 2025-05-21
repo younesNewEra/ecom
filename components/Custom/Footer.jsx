@@ -124,12 +124,12 @@ const Footer = () => {
             <ul className="space-y-3">
               <li className="text-gray-600">
                 <a href="mailto:store@uikit.com" className="hover:text-gray-900">
-                  store@uikit.com
+                  achouryounes101@gmail.com
                 </a>
               </li>
               <li className="text-gray-600">
-                <a href="tel:+11311381138" className="hover:text-gray-900">
-                  Hotline: +1 131 138 138
+                <a href="tel:+213697133715" className="hover:text-gray-900">
+                  Hotline: 06 97 13 37 15
                 </a>
               </li>
             </ul>
@@ -140,7 +140,7 @@ const Footer = () => {
       {/* Copyright */}
       <div className="mt-12 border-t border-gray-100 pt-8">
         <p className="text-center text-gray-500 text-sm">
-          DESIGN BY ICEO.CO - © 2019. ALL RIGHTS RESERVED.
+          developed by Achour Younes 2025.
         </p>
       </div>
     </footer>

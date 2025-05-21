@@ -31,16 +31,26 @@ export default function CampaignsPage() {
 
   const fetchCampaigns = async () => {
     try {
-      const response = await fetch('/api/campaigns')
+      const response = await fetch('/api/campaigns', {
+        // Add cache: 'no-store' to prevent browser caching
+        cache: 'no-store',
+        // Add a timestamp query parameter to bypass any potential caching
+        headers: {
+          'pragma': 'no-cache',
+          'cache-control': 'no-cache'
+        }
+      });
+      
       if (response.ok) {
-        const data = await response.json()
-        setCampaigns(data)
+        const data = await response.json();
+        setCampaigns(Array.isArray(data) ? data : []);
       } else {
-        toast.error("Failed to fetch campaigns")
+        console.error("Failed to fetch campaigns:", await response.text());
+        toast.error("Failed to fetch campaigns");
       }
     } catch (error) {
-      console.error("Error fetching campaigns:", error)
-      toast.error("An error occurred while fetching campaigns")
+      console.error("Error fetching campaigns:", error);
+      toast.error("An error occurred while fetching campaigns");
     }
   }
 
@@ -252,9 +262,18 @@ export default function CampaignsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Campaign List</CardTitle>
-          <CardDescription>View and manage your marketing campaigns.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle>Campaign List</CardTitle>
+            <CardDescription>View and manage your marketing campaigns.</CardDescription>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => fetchCampaigns()}
+          >
+            Refresh
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>

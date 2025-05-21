@@ -3,16 +3,34 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, Package, ShoppingCart, TrendingUp } from "lucide-react"
-import { AreaChart, PieChart } from "@/components/ui/charts"
+import { OrderStatusChart } from "@/components/ui/order-status-chart"
+import { TrafficChart } from "@/components/ui/traffic-chart"
 
-export default function Dashboard() {
+export default function Dashboard() {  // Dummy data for charts
+  const dummyPieChartData = [
+    { name: "DELIVERED", value: 45, fill: "#10b981" },
+    { name: "PENDING", value: 20, fill: "#f59e0b" },
+    { name: "CONFIRMED", value: 25, fill: "#3b82f6" },
+    { name: "CANCELED", value: 10, fill: "#ef4444" }
+  ]
+  
+  const dummyTrafficData = [
+    { name: "Jan", value: 400 },
+    { name: "Feb", value: 300 },
+    { name: "Mar", value: 500 },
+    { name: "Apr", value: 200 },
+    { name: "May", value: 450 },
+    { name: "Jun", value: 600 },
+    { name: "Jul", value: 350 }
+  ]
+
   const [dashboardData, setDashboardData] = useState({
     stockEvaluation: { value: "0.00", changePercentage: "0.0" },
     totalSales: { value: "0.00", changePercentage: "0.0" },
     totalProfit: { value: "0.00", changePercentage: "0.0" },
     numberOfSales: { value: 0, changePercentage: "0.0" },
-    trafficData: [],
-    pieChartData: []
+    trafficData: dummyTrafficData,
+    pieChartData: dummyPieChartData
   })
   const [isLoading, setIsLoading] = useState(true)
 
@@ -108,42 +126,32 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">        <Card className="col-span-4">
           <CardHeader>
             <CardTitle>Website Traffic</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
-            {isLoading ? (
-              <div className="h-[300px] flex items-center justify-center">Loading chart data...</div>
-            ) : (
-              <AreaChart
-                data={dashboardData.trafficData}
-                index="name"
-                categories={["value"]}
-                colors={["blue"]}
-                valueFormatter={(value) => `${value} visits`}
-                className="h-[300px]"
-              />
-            )}
+            <TrafficChart data={[
+              { name: "Jan", value: 400 },
+              { name: "Feb", value: 300 },
+              { name: "Mar", value: 500 },
+              { name: "Apr", value: 200 },
+              { name: "May", value: 450 },
+              { name: "Jun", value: 600 },
+              { name: "Jul", value: 350 }
+            ]} />
           </CardContent>
-        </Card>
-        <Card className="col-span-3">
+        </Card><Card className="col-span-3">
           <CardHeader>
             <CardTitle>Order Status</CardTitle>
           </CardHeader>
           <CardContent className="flex justify-center items-center">
-            {isLoading ? (
-              <div className="h-[300px] flex items-center justify-center">Loading chart data...</div>
-            ) : (
-              <PieChart
-                data={dashboardData.pieChartData}
-                index="name"
-                categories={["value"]}
-                valueFormatter={(value) => `${value} orders`}
-                className="h-[300px]"
-              />
-            )}
+            <OrderStatusChart data={[
+              { name: "DELIVERED", value: 45, color: "#10b981" },
+              { name: "PENDING", value: 20, color: "#f59e0b" },
+              { name: "CONFIRMED", value: 25, color: "#3b82f6" },
+              { name: "CANCELED", value: 10, color: "#ef4444" }
+            ]} />
           </CardContent>
         </Card>
       </div>

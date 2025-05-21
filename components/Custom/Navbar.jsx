@@ -114,7 +114,7 @@ export default function Navbar() {
 
   const itemCount = cartItems.reduce((count, item) => count + item.quantity, 0)
   const cartTotal = cartItems.reduce((total, item) => total + (item.product?.price || 0) * item.quantity, 0)
-  const isProductPage = pathname.startsWith("/products") || pathname.startsWith("/product") || pathname.startsWith("/checkout");
+  const isProductPage = pathname.startsWith("/products") || pathname.startsWith("/product") || pathname.startsWith("/checkout") || pathname.startsWith("/prediction");
 
   return (
     <>
@@ -130,8 +130,8 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            {["Home", "Products"].map((item) => (
+          <div className="hidden md:flex items-center space-x-8 ml-10">
+            {["Products", "prediction"].map((item) => (
               <Link
                 key={item}
                 href={`/${item.toLowerCase()}`}
